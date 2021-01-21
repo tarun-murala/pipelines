@@ -1,0 +1,170 @@
+pipeline {
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    echo "Stage: Checkout"
+                }
+            }
+        }
+        stage('Build with unit tests') {
+            steps {
+                script {
+                    stageName = 'Build with unit tests'
+                    echo "Build maven artifact from ${env.BRANCH_NAME} branch."
+                }
+            }
+        }
+
+        stage('Verify code formatting') {
+            steps {
+                script {
+                    stageName = 'Verify code formatting';
+                    echo "Stage: ${stageName}"
+                }
+            }
+        }
+        stage("Acceptance and other test phases") {
+            steps {
+                script {
+                    try {
+                        stageName = 'Acceptance and other test phases'
+                        echo "Stage: ${stageName}"
+                    } finally {
+                        echo "Stage: ${stageName} - Finally Block"
+                    }
+                }
+            }
+        }
+        stage('Static code analysis') {
+            steps {
+                script {
+                    stage('Publish PIT report') {
+                        try {
+                            stageName = 'PIT report'
+                            echo "Stage: ${stageName}"
+                        } finally {
+                            echo "Stage: ${stageName} - Finally"
+                        }
+                    }
+                    stage('APP: SonarQube') {
+                        stageName = 'SonarQube analysis'
+                        echo "Stage: ${stageName}"
+                    }
+                    stage('APP: Checkmarx') {
+                        stageName = 'CheckMarx'
+                        echo "Stage: ${stageName}"
+                    }
+                    stage('OWASP') {
+                        stageName = 'OWASP'
+                        try {
+                            echo "Stage: ${stageName}"
+                        } finally {
+                            echo "Stage: ${stageName} - Finally"
+                        }
+                    }
+                    stage('Dependency Check') {
+                        stageName = 'Dependency check'
+                        try {
+                            echo "Stage: ${stageName}"
+                        } finally {
+                            echo "Stage: ${stageName} - Finally"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Deployment to test environment') {
+            when {
+                anyOf{
+                    branch 'master'
+                    branch 'release/*'
+                }
+            }
+            steps {
+                script{
+                    stageName = 'Deployment to test environment'
+                    echo "Stage: ${stageName}"
+                }
+            }
+        }
+        stage('Deployment to production'){
+            when {
+                branch 'release/*'
+            }
+            steps {
+                script{
+                    stageName = 'Deployment to production'
+                    echo "Stage: ${stageName}"
+                    snDevOpsChange()
+                }
+            }
+        }
+        stage('Run Pact Provider Tests') {
+            steps {
+                script {
+                    stageName = 'Run Pact Provider Tests'
+                    echo "waiting 50 seconds so the application is up and running in order to run pact test against it"
+                    echo "Stage: ${stageName}"
+                    sleep 3
+                }
+            }
+        }
+        stage('APP: Publish artifact to Nexus') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    stageName = 'APP: Publish artifact to Nexus'
+                    echo "Run maven deploy"
+                    echo "Stage: ${stageName}"
+                }
+            }
+        }
+
+        stage('Tag release version') {
+            when {
+                anyOf{
+                    branch 'master'
+                    branch 'release/*'
+                }
+            }
+            steps {
+                script {
+                    stageName = 'Tag release version'
+                    echo "Stage: ${stageName}"
+                }
+            }
+        }
+        stage('Increment version') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    stageName = 'Increment version'
+                    echo "Stage: ${stageName}"
+                }
+            }
+        }
+        stage('Push changes to GIT') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    stageName = 'Push changes to GIT'
+                    echo "Stage: ${stageName}"
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            echo 'Build failure!!!'
+        }
+    }
+}
+
